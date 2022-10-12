@@ -1,0 +1,530 @@
+# yarn init --force
+
+# yarn add react react-dom --save-peer
+
+# yarn add typescript @types/react @types/react-dom --save-dev
+
+=> create tsconfig.json
+
+============================================================================
+
+==> Add storybook library
+# npx sb init
+
+============================================================================
+==> bootstrap add
+# yarn add bootstrap --save-dev
+
+============================================================================
+==> Formatting and linting 
+# yarn add prettier --save-dev
+
+=> create.prettierrc file
+=> add script in package.json
+"format": "prettier --write ./src"
+"lint:format": "prettier --check ./src"
+
+=> add eslint
+# yarn add --dev eslint eslint-config-prettier eslint-plugin-react eslint-plugin-react-hooks @typescript-eslint/eslint-plugin @typescript-eslint/parser
+
+=> create.eslintrc file
+=> add script in package.json
+"lint": eslint src/**"
+
+============================================================================
+==> Adding style
+-> add styled component as peer dependency
+
+# yarn add styled-components --save-peer
+# yarn add @types/styled-components --save-dev
+
+==> Polish library: Polish library allow our styled component and allows us to calculate styles at run time
+# yarn add polished
+
+============================================================================
+=> Run time prop validation we can use Prop Type library, Because our library will consume by with typescript user and normal javascript user as well, To insure that all library consumer have props types validation we will be including props type library. 
+
+# yarn add prop-types
+
+
+Add prop type validation to button component
+
+-- import PropTypes from "prop-types";
+
+then define prop type declaration, and these value are from the button prop interface that we define.
+
+-- Button.propTypes = {
+  variant: PropTypes.oneOf(['secondary', 'primary', 'danger']),
+  size: PropTypes.oneOf(['small', 'medium', 'large']),
+  isFullwidth: PropTypes.bool
+};
+
+
+typescript props type checking for build time.
+prop-type props type checking for run time and these will work for both javascript and typescript consumer
+============================================================================
+
+==> Compound Component :=> Pattern use in previou button module was simple and stand alone elements, but once you start creating pattern that share state between component then additional logic will required , so now we will create collection for Form controlls as compound component, these component have share context provider that was an auto generated Id for accessibility.
+
+Compound component are usefull design pattern becuase that increse flexbility of component.
+
+==> Creating Field Components :=>
+- out form field API have 2 compound components that is "label" and "input", the field component providing a unique id to filled out "label".
+- To generate unique id , we will create react custom hook neno-id library, this library help us to create url friendly unique string.
+
+# yarn add nanoid
+
+=> Create new file name "useUniqueID.ts" for hook under "utils" folder, in that file we will create custome alphabeat useing non secure import from nanoID.
+
+- import { customAlphabet } from "nanoid/non-secure"; 
+
+- create new nanoid instance, by calling customAlphabet, and will give length of 10, and we need to provide some randome character to created those unique 10 length string.
+
+const nanoid = customAlphabet('1234567890abcdxyzwer', 10);
+
+- exporte and created hook
+
+export const useUniqueID = () => {
+  const [id] = useState(nanoid());
+  return id;
+}  
+
+So these will create a unique id when this hook is first initialize and store it as state full value and return it for each unique render or component cycle.
+so it will create new unique id when initialize and return the same value through out the all consuming component life cycle. 
+
+==> Next need to create wrapping component, which will provide this unique id value through the context to its children
+
+-> create new folder "fields" under the "src" folder
+-> create new file "FieldContext.ts" under "fields" folder.
+    import { createContext } from 'react';
+    export const FieldContext = createContext<string | undefined>(undefined);
+
+-> create new file "Field.tsx" under "fields" folder.
+    import React from 'react';
+    import { useUniqueID } from '../utils/useUniqueID';
+    import { FieldContext } from './FieldContext';
+
+    export const Field: React.FC = ({ children }) => {
+      const id = useUniqueID();
+      return <FieldContext.Provider value={id}>{children}</FieldContext.Provider>;
+    };
+
+    This component doest not return any DOM elements but it will wrape any it's provided children with it's context provider and provide the unique id for context
+
+-> create new file "Label.tsx" under "fields" folder.
+    Here we can use same things whihc we used in Button component such as jsx or props or children or JSX props spreading 
+
+-> create new file "Input.tsx" under "fields" folder.
+    Here we can use same things whihc we used in Button component such as jsx or props or children or JSX props spreading 
+
+============================================================================
+==> testing
+# yarn add jest ts-jest @types/jest --save-dev
+
+# yarn add @testing-library/react @testing-library/jest-dom
+
+============================================================================
+
+==> Module Bundelling 
+
+- Build process for library have many similarities with application build process.
+- We will take single entery ppoint, which contains our components and bundle them together into ouput file.
+- When bundling application the target environment is web browser, webpack is one of the most popular things to help to bundle assests and files in such way that browser can understand.
+- For libraries targeted environment is often a another development environmnet not a browser.
+- Here we will use Rollup Js as our module Bundler.
+
+=> Module formats
+-> Common JS (CJS) :-> 
+    - Module system used by Node.js historically, it serer side only
+    - require and module.exporte
+
+-> ESModules (ES) :->
+    - The official specification for a standard module system, these work on both server and modern browser environment.
+    - import and export
+    - This module is support TREE SHAKING , Tree sacking allows modern bundlers like webpack and rollup js.
+
+-> Universal Module Definitation (UMD) :->
+    - Allows interaction with many different module format.
+    - This will work on both server and browser environment.
+    - But these is unable to TREE SHAKING
+
+When we build library, we does not need to choose any single module format, we can provide several formats and reference them with unique entry points in our package.json file.
+
+-> Some popular entry points are follow:
+  -> main :->
+      Common JS (CJS) entry point
+
+  -> module :-> 
+      ES Module entry point 
+  
+  -> browser :-> 
+      UMD entry point 
+
+Modern Bundlers are able to look at the entry point to determine which format to consume.
+
+-> IN this Project we only providing "main" and "module" entry point for the commonJS (cjs) and ES-Module (ES) distrubution.
+
+==> Babel :=>
+Module bundler are important, but we still need to produce Javascript that broswer can understand, depeending on the minimum browser requiremets some modern Javascript features may not be available.
+
+Babel is tool helping to transpile our code into a format that older browsers can understand.
+Babel also allows other tools and libraries to create presets that improve code.
+Babel preset React for example ensure that our jsx syntax handle correctly.
+we will also be using style component babel plugin to improve our css in js in production.
+
+we will babel in combination with rollup to bundle our application.
+
+============================================================================
+
+We need to configure the babel and rollup js separately.
+These modules will exports our all the plugable components, apis, and typescript values that we want to make publicly consumable. 
+
+=> Create index.ts files inside our "src" folder
+
+=> install bable and other depedency 
+
+=> For bable our storybook environment actually already includes few depedency that is @babel/core and babel-loader, that is use in webpack configuration inside storybook
+
+=> Since it is already installed @bable/core, we just need some necessary plugin and presets for our components
+
+- @babel/preset-env : allows us to target specific browser environment when we transpile our code.
+
+- @babel/preset-react : is the combination of the plugin that allows us to use jsx and other react features.
+
+- @babel/preset-typescript : allows babel to consume typescript as a regualr javascript, one cavet or downside is , it does do or reform any type checking, that we have to do in separate step.
+
+- babel-plugin-styled-components : it helps us to improve debugging and minificaiton of styles in production environment.
+
+- @babel/runtime : this is gone pair with the @babel/plugin-transform-runtime so when a library transpile with babel there are severl helper function included with output, as you consume more packages this helpers duplicated and increse the bundle size, so by including @babel/runtime dependency we can de-duplicate some of that and ensure that our packages does not duplicate them locally, so if there are several shared libraries that reference bable-runtime these will be de-duplicte them or not includ again and again.
+
+# yarn add @babel/preset-env @babel/preset-react @babel/preset-typescript @babel/plugin-transform-runtime babel-plugin-styled-components --save-dev
+
+# yarn add @babel/runtime
+
+=> to configure bable, we need to create ".babelrc" file under the "src" folder, and including a default configuration as below:
+{
+  "presets": [
+    [
+      "@babel/preset-env",
+      {
+        "targets": ">0.2%, not dead, not op_mini all"
+      }
+    ],
+    "@babel/preset-react",
+    "@babel/preset-typescript"
+  ],
+  "plugins": [
+    "@babel/plugin-transform-runtime",
+    "babel-plugin-styled-components"
+  ]
+}
+
+
+just for understanding what brower are included we can use the following command:
+note:=> ">0.2%, not dead, not op_mini all" --> this is mentioned in .babelrc file
+# npx browserslist ">0.2%, not dead, not op_mini all"
+
+============================================================================
+
+==> Add necessary depedeny for Rollup and configuration for that:
+and these are all development depedency since it is only necessary at build time only
+
+# yarn add rollup rollup-plugin-delete rollup-plugin-node-externals @rollup/plugin-babel @rollup/plugin-commonjs @rollup/plugin-node-resolve --save-dev
+
+
+=> Create rollup.config.js, and add below content
+/* eslint-env node */
+
+import { nodeResolve } from '@rollup/plugin-node-resolve';
+import commonjs from '@rollup/plugin-commonjs';
+import babel from '@rollup/plugin-babel';
+import externals from 'rollup-plugin-node-externals';
+import del from 'rollup-plugin-delete';
+import pkg from './package.json';
+
+export default [
+  {
+    input: './src/index.ts',
+    plugins: [
+      del({ targets: 'dist/*' }),
+      externals({ deps: true }),
+      nodeResolve({
+        extensions: ['.js', '.ts', '.tsx'],
+      }),
+      commonjs(),
+      babel({
+        babelHelpers: 'runtime',
+        exclude: '**/node_modules/**',
+        extensions: ['.js', '.jsx', '.ts', '.tsx'],
+      }),
+    ],
+    output: [
+      { file: pkg.main, format: 'cjs' },
+      { file: pkg.module, format: 'es' },
+    ],
+  },
+];
+
+
+=> in rollup configuration, there are 3 common section: input, output and plugin section
+  -> input :-> for input, it references the entry point that we defined which is "input: './src/index.ts'", these will determine what module are  bundeled in our output
+
+  -> output :-> defines where the bundle and transpile output will be placed when the build is complete. 
+  And also receive the format configuration which determines the module format which is CommonJS (CJS) and ES modules, and we are referencing this file path, from our package.json, so this introduce that whatever value provide for that entry point within our package.json where this output is gonna build from rollup.
+
+  -> plugin :-> this is what does, all the files transform for us.
+    - "delete", this will remove any existing DOM file from previous build before we start the next process.
+    - "externals" ensure is that any depedency are we relie on not bundle with an library, and some common depedency to de-duplicate with other packages during the npm install process , and this will help to reduce the bundle size 
+    - "nodeResolve" allows rollup to find third part module within our main module directory.
+    - "commonjs" helps us to convert common js module into ES modules within Rollup for TREE SHAKING.
+    - "babel" uses our babel config that we defined earlier to transpile our code which will understand by the browser.
+
+============================================================================
+
+=> configure Package.json file
+  - "main" : should link to common js module should be move to "dist/index.cjs.js", so it is our common js entry point
+    "main": "dist/index.cjs.js",
+
+  - "module" : this is new module entry point which will point to "dist/index.esm.js"
+      "module": "dist/index.esm.js",
+
+  - "sideEffects" : and set it "false", so these will help for modern bundlers like webpack and rollup and parser to tell them that this library does not have any global side effects so that they can safely TREE SHAKING the content.
+
+  - "scripts" 
+    "build": "npm run build:js && npm run build:types",
+    "build:js": "rollup -c rollup.config.js",
+    "build:types": "tsc -p tsconfig.build.json",
+    "test": "npm run test:ts && npm run test:jest",
+    "test:jest": "jest",
+    "test:ts": "tsc",
+    "lint": "npm run lint:format && npm run lint:js",
+    "lint:format": "prettier --check \"src/**/*\"",
+    "lint:js": "eslint src/**",
+    "format": "prettier --write \"src/**/*\"",
+    "storybook": "start-storybook -p 6006",
+    "build-storybook": "build-storybook"
+
+  -  
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
+
+
+============================================================================
